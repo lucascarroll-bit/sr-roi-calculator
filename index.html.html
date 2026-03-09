@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logistics ROI Calculator — Stanley Robotics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── TOKENS ────────────────────────────────────────────────────── */
+:root {
+  --navy:        #0E2240;
+  --navy-mid:    #1a3a6b;
+  --navy-light:  #e8eef7;
+  --cyan:        #00C8DC;
+  --cyan-dim:    #009CB0;
+  --cyan-pale:   #E0F8FA;
+  --white:       #ffffff;
+  --off-white:   #f7f9fc;
+  --grey-100:    #f0f3f8;
+  --grey-200:    #dce4f0;
+  --grey-400:    #8fa3c0;
+  --grey-600:    #4a6480;
+  --text:        #0E2240;
+  --text-mid:    #4a6480;
+  --text-lo:     #8fa3c0;
+  --green:       #1aab6d;
+  --green-pale:  #e6f9f1;
+  --radius:      12px;
+  --radius-sm:   8px;
+  --shadow:      0 4px 24px rgba(14,34,64,0.10);
+  --shadow-lg:   0 16px 48px rgba(14,34,64,0.16);
+}
+
+/* ── RESET ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--off-white);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── SCROLLBAR ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--grey-100); }
+::-webkit-scrollbar-thumb { background: var(--grey-200); border-radius: 3px; }
+
+/* ── HEADER ────────────────────────────────────────────────────── */
+.site-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: var(--white);
+  border-bottom: 1px solid var(--grey-200);
+  height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px;
+}
+.logo {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none;
+}
+.logo-hex {
+  width: 36px; height: 36px;
+  background: var(--navy);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-hex::after {
+  content: '';
+  width: 12px; height: 12px;
+  background: var(--cyan);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+.logo-name {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--navy);
+}
+.logo-name span { color: var(--cyan); }
+.header-tag {
+  font-size: 12px;
+  color: var(--text-lo);
+  font-weight: 400;
+}
+
+/* ── PROGRESS BAR ──────────────────────────────────────────────── */
+.progress-wrap {
+  position: fixed; top: 64px; left: 0; right: 0; z-index: 99;
+  background: var(--white);
+  border-bottom: 1px solid var(--grey-200);
+  padding: 0 40px;
+  display: flex; align-items: center; gap: 0;
+}
+.progress-step {
+  flex: 1;
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 0;
+  position: relative;
+  cursor: default;
+}
+.progress-step::after {
+  content: '';
+  position: absolute; right: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 1px; height: 20px;
+  background: var(--grey-200);
+}
+.progress-step:last-child::after { display: none; }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+  background: var(--grey-100);
+  color: var(--text-lo);
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+.step-label {
+  font-size: 12px; font-weight: 500;
+  color: var(--text-lo);
+  white-space: nowrap;
+  transition: color 0.3s;
+}
+.progress-step.active .step-num {
+  background: var(--navy);
+  color: var(--white);
+}
+.progress-step.active .step-label { color: var(--navy); }
+.progress-step.done .step-num {
+  background: var(--cyan);
+  color: var(--white);
+}
+.progress-step.done .step-num::after { content: '✓'; font-size: 11px; }
+.progress-step.done .step-label { color: var(--cyan); }
+.progress-track {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: var(--grey-100);
+}
+.progress-fill {
+  height: 100%; background: var(--cyan);
+  transition: width 0.5s ease;
+}
+
+/* ── MAIN LAYOUT ───────────────────────────────────────────────── */
+.main {
+  padding-top: 128px; /* header + progress */
+  min-height: 100vh;
+}
+
+/* ── HERO PANEL ────────────────────────────────────────────────── */
+.hero {
+  background: var(--navy);
+  padding: 80px 40px 100px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 120%, rgba(0,200,220,0.18) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.hero > * { position: relative; z-index: 1; }
+.hero-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--cyan);
+  margin-bottom: 20px;
+}
+.hero-title {
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: clamp(28px, 4.5vw, 52px);
+  line-height: 1.15;
+  color: var(--white);
+  max-width: 680px;
+  margin: 0 auto 20px;
+}
+.hero-title em { color: var(--cyan); font-style: normal; }
+.hero-sub {
+  font-size: 17px; font-weight: 300;
+  color: rgba(255,255,255,0.65);
+  max-width: 520px;
+  margin: 0 auto 40px;
+  line-height: 1.6;
+}
+.hero-stats {
+  display: flex; justify-content: center; gap: 48px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+.hero-stat-val {
+  font-family: 'Inter', sans-serif; font-weight: 700;
+  font-size: 32px; color: var(--cyan);
+  display: block;
+}
+.hero-stat-lbl {
+  font-size: 12px; color: rgba(255,255,255,0.5);
+  letter-spacing: 0.05em;
+}
+.btn-start {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--cyan);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px; font-weight: 600;
+  padding: 16px 36px;
+  border-radius: 50px;
+  border: none; cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s;
+  box-shadow: 0 8px 24px rgba(0,200,220,0.35);
+}
+.btn-start:hover {
+  background: var(--cyan-dim);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0,200,220,0.4);
+}
+.btn-start svg { transition: transform 0.2s; }
+.btn-start:hover svg { transform: translateX(4px); }
+.hero-note {
+  margin-top: 20px;
+  font-size: 12px; color: rgba(255,255,255,0.35);
+}
+
+/* ── STEPS CONTAINER ───────────────────────────────────────────── */
+.steps-container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+/* ── STEP CARD ─────────────────────────────────────────────────── */
+.step-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 40px;
+  display: none;
+  animation: stepIn 0.35s ease;
+}
+.step-card.active { display: block; }
+@keyframes stepIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.step-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--cyan);
+  margin-bottom: 8px;
+}
+.step-title {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 26px; color: var(--navy);
+  margin-bottom: 6px;
+}
+.step-sub {
+  font-size: 14px; color: var(--text-mid);
+  margin-bottom: 32px;
+  line-height: 1.5;
+}
+.step-divider {
+  height: 1px; background: var(--grey-200);
+  margin-bottom: 28px;
+}
+
+/* ── FORM ELEMENTS ─────────────────────────────────────────────── */
+.field-group { margin-bottom: 24px; }
+.field-group:last-child { margin-bottom: 0; }
+.field-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--navy);
+  margin-bottom: 8px;
+}
+.field-hint {
+  font-size: 12px; font-weight: 400; color: var(--text-lo);
+  margin-left: 4px;
+}
+.field-sublabel {
+  font-size: 12px; color: var(--text-lo); margin-bottom: 8px;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="tel"],
+select,
+textarea {
+  width: 100%;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--off-white);
+  border: 1.5px solid var(--grey-200);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none; appearance: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(14,34,64,0.08);
+  background: var(--white);
+}
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%238fa3c0'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width: 520px) { .field-row { grid-template-columns: 1fr; } }
+
+/* number input with prefix/suffix */
+.input-wrap {
+  position: relative; display: flex; align-items: center;
+}
+.input-prefix, .input-suffix {
+  position: absolute;
+  font-size: 14px; font-weight: 500; color: var(--text-lo);
+  pointer-events: none;
+}
+.input-prefix { left: 14px; }
+.input-suffix { right: 14px; }
+.input-wrap input { padding-left: 28px; }
+.input-wrap.has-suffix input { padding-right: 40px; }
+
+/* pre-filled badge */
+.prefill-note {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--cyan);
+  font-weight: 500; margin-top: 5px;
+}
+.prefill-note svg { width: 12px; height: 12px; }
+
+/* ── TILE SELECTORS ────────────────────────────────────────────── */
+.tile-grid {
+  display: grid; gap: 12px;
+}
+.tile-grid-2 { grid-template-columns: 1fr 1fr; }
+.tile-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+@media(max-width: 520px) { .tile-grid-2, .tile-grid-3 { grid-template-columns: 1fr; } }
+
+.tile {
+  border: 1.5px solid var(--grey-200);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--off-white);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.tile:hover { border-color: var(--navy-mid); background: var(--white); }
+.tile.selected {
+  border-color: var(--cyan);
+  background: var(--cyan-pale);
+  box-shadow: 0 0 0 3px rgba(0,200,220,0.12);
+}
+.tile-icon { font-size: 22px; margin-bottom: 4px; }
+.tile-title { font-size: 14px; font-weight: 600; color: var(--navy); }
+.tile-desc { font-size: 12px; color: var(--text-lo); line-height: 1.4; }
+
+/* ── SLIDER ────────────────────────────────────────────────────── */
+.slider-wrap { padding: 8px 0 4px; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px;
+  background: var(--grey-200);
+  border-radius: 2px; outline: none; border: none;
+  cursor: pointer;
+  padding: 0;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--navy);
+  border: 3px solid var(--white);
+  box-shadow: 0 2px 8px rgba(14,34,64,0.25);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.15); }
+.slider-labels {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--text-lo);
+  margin-top: 6px;
+}
+.slider-current {
+  text-align: center;
+  font-size: 22px; font-weight: 600; color: var(--navy);
+  margin-bottom: 8px;
+}
+.slider-unit { font-size: 13px; font-weight: 400; color: var(--text-lo); }
+
+/* ── NAV BUTTONS ───────────────────────────────────────────────── */
+.step-nav {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--grey-200);
+}
+.btn-back {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px; font-weight: 500;
+  color: var(--text-mid);
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  transition: color 0.2s;
+  padding: 8px 0;
+}
+.btn-back:hover { color: var(--navy); }
+.btn-back:disabled { opacity: 0; pointer-events: none; }
+.btn-next {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px; font-weight: 600;
+  color: var(--white);
+  background: var(--navy);
+  border: none; cursor: pointer;
+  padding: 14px 32px; border-radius: 50px;
+  display: flex; align-items: center; gap: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(14,34,64,0.2);
+}
+.btn-next:hover {
+  background: var(--navy-mid);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(14,34,64,0.28);
+}
+.btn-next.orange { background: var(--cyan); box-shadow: 0 4px 16px rgba(0,200,220,0.3); }
+.btn-next.orange:hover { background: var(--cyan-dim); }
+
+/* ── INFO BOX ──────────────────────────────────────────────────── */
+.info-box {
+  background: var(--navy-light);
+  border-left: 3px solid var(--navy);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  font-size: 13px; color: var(--navy); line-height: 1.5;
+}
+.info-box strong { font-weight: 600; }
+
+/* ── RESULTS STEP ──────────────────────────────────────────────── */
+.results-hero {
+  background: var(--navy);
+  border-radius: var(--radius);
+  padding: 36px 40px;
+  margin-bottom: 20px;
+  position: relative; overflow: hidden;
+}
+.results-hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 70% 80% at 100% 0%, rgba(0,200,220,0.2) 0%, transparent 60%);
+}
+.results-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--cyan);
+  margin-bottom: 10px;
+}
+.results-headline {
+  font-family: 'Inter', sans-serif; font-weight: 700;
+  font-size: clamp(28px, 4vw, 42px);
+  color: var(--white); line-height: 1.2;
+  margin-bottom: 6px;
+}
+.results-headline span { color: var(--cyan); }
+.results-subline {
+  font-size: 15px; color: rgba(255,255,255,0.6);
+  margin-bottom: 28px;
+}
+.results-metrics {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 16px;
+}
+.results-metric {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+}
+.results-metric-val {
+  font-family: 'Inter', sans-serif; font-weight: 700;
+  font-size: 28px; color: var(--white);
+  margin-bottom: 3px; display: block;
+}
+.results-metric-val.orange { color: var(--cyan); }
+.results-metric-lbl { font-size: 11px; color: rgba(255,255,255,0.45); letter-spacing: 0.05em; }
+
+.results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+@media(max-width:600px) { .results-grid { grid-template-columns: 1fr; } .results-metrics { grid-template-columns: 1fr; } }
+
+.result-card {
+  background: var(--white);
+  border: 1.5px solid var(--grey-200);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+}
+.result-card-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-lo);
+  margin-bottom: 14px;
+}
+.result-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--grey-100);
+  font-size: 13px;
+}
+.result-item:last-child { border-bottom: none; }
+.result-item-label { color: var(--text-mid); }
+.result-item-value { font-weight: 600; color: var(--navy); }
+.result-item-value.green { color: var(--green); }
+.result-item-value.orange { color: var(--cyan); }
+
+/* payback bar */
+.payback-bar-wrap { margin-top: 10px; }
+.payback-bar-track {
+  height: 8px; background: var(--grey-100); border-radius: 4px;
+  overflow: hidden; margin-bottom: 6px;
+}
+.payback-bar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--navy), var(--cyan));
+  transition: width 1.2s ease;
+}
+.payback-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-lo); }
+
+/* chart */
+.chart-card {
+  background: var(--white);
+  border: 1.5px solid var(--grey-200);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.chart-card-title {
+  font-size: 13px; font-weight: 600; color: var(--navy);
+  margin-bottom: 4px;
+}
+.chart-card-sub { font-size: 12px; color: var(--text-lo); margin-bottom: 20px; }
+
+/* disclaimer */
+.results-disclaimer {
+  background: var(--grey-100);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+  font-size: 12px; color: var(--text-lo); line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+/* ── LEAD CAPTURE ──────────────────────────────────────────────── */
+.lead-card {
+  background: var(--navy);
+  border-radius: var(--radius);
+  padding: 36px 40px;
+  margin-bottom: 20px;
+  position: relative; overflow: hidden;
+}
+.lead-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 0% 100%, rgba(0,200,220,0.15) 0%, transparent 60%);
+}
+.lead-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--cyan);
+  margin-bottom: 10px;
+}
+.lead-title {
+  font-family: 'Inter', sans-serif; font-weight: 700;
+  font-size: 26px; color: var(--white);
+  margin-bottom: 8px; line-height: 1.25;
+}
+.lead-sub { font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 28px; }
+.lead-form { position: relative; }
+.lead-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media(max-width:520px) { .lead-field-row { grid-template-columns: 1fr; } }
+.lead-form input, .lead-form select {
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(255,255,255,0.15);
+  color: var(--white);
+  border-radius: var(--radius-sm);
+}
+.lead-form input::placeholder { color: rgba(255,255,255,0.35); }
+.lead-form input:focus, .lead-form select:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0,200,220,0.15);
+  background: rgba(255,255,255,0.12);
+}
+.lead-form select { color: rgba(255,255,255,0.8); }
+.lead-form select option { background: var(--navy); }
+.btn-submit {
+  width: 100%;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px; font-weight: 600;
+  color: var(--navy);
+  background: var(--cyan);
+  border: none; cursor: pointer;
+  padding: 16px;
+  border-radius: 50px;
+  margin-top: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 6px 20px rgba(0,200,220,0.35);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-submit:hover {
+  background: #33D4E8;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px rgba(0,200,220,0.45);
+}
+.lead-privacy {
+  font-size: 11px; color: rgba(255,255,255,0.3);
+  text-align: center; margin-top: 12px; line-height: 1.5;
+}
+.lead-benefits {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px;
+}
+@media(max-width:520px) { .lead-benefits { grid-template-columns: 1fr; } }
+.lead-benefit {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 13px; color: rgba(255,255,255,0.75);
+}
+.benefit-icon {
+  width: 28px; height: 28px; flex-shrink: 0;
+  background: rgba(0,200,220,0.15);
+  border-radius: 6px; border: 1px solid rgba(0,200,220,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+
+/* ── THANK YOU ─────────────────────────────────────────────────── */
+.thankyou-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 60px 40px;
+  text-align: center;
+  display: none;
+}
+.thankyou-card.active { display: block; animation: stepIn 0.4s ease; }
+.thankyou-icon {
+  width: 72px; height: 72px;
+  background: var(--green-pale);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+  margin: 0 auto 24px;
+}
+.thankyou-title {
+  font-family: 'Inter', sans-serif; font-weight: 700;
+  font-size: 30px; color: var(--navy);
+  margin-bottom: 12px;
+}
+.thankyou-sub {
+  font-size: 15px; color: var(--text-mid);
+  max-width: 420px; margin: 0 auto 32px;
+  line-height: 1.6;
+}
+.thankyou-steps {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 16px;
+  max-width: 480px; margin: 0 auto;
+}
+.ty-step {
+  background: var(--off-white);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-size: 12px; color: var(--text-mid);
+  line-height: 1.5;
+}
+.ty-step-num {
+  width: 28px; height: 28px;
+  background: var(--cyan);
+  color: var(--white);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  margin: 0 auto 8px;
+}
+
+/* ── ANIMATIONS ────────────────────────────────────────────────── */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.count-animate { animation: countUp 0.6s ease forwards; }
+
+/* ── VALIDATION ────────────────────────────────────────────────── */
+.field-error { border-color: #e53e3e !important; }
+.error-msg { font-size: 11px; color: #e53e3e; margin-top: 4px; }
+
+/* ── MOBILE ────────────────────────────────────────────────────── */
+@media(max-width:600px) {
+  .site-header { padding: 0 20px; }
+  .progress-wrap { padding: 0 20px; }
+  .step-label { display: none; }
+  .hero { padding: 48px 24px 64px; }
+  .steps-container { padding: 32px 16px 60px; }
+  .step-card { padding: 28px 24px; }
+  .results-hero { padding: 28px 24px; }
+  .lead-card { padding: 28px 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <a class="logo" href="https://stanley-robotics.com/" target="_blank" rel="noopener">
+    <img src="data:image/jpeg;base64,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" alt="Stanley Robotics" style="height:44px;width:44px;object-fit:cover;border-radius:6px;">
+    <div class="logo-name">STANLEY <span>ROBOTICS</span></div>
+  </a>
+  <div class="header-tag">Logistics ROI Calculator</div>
+</header>
+
+<!-- PROGRESS -->
+<div class="progress-wrap" id="progressWrap" style="display:none">
+  <div class="progress-step active" id="ps1">
+    <div class="step-num">1</div>
+    <div class="step-label">Your Site</div>
+  </div>
+  <div class="progress-step" id="ps2">
+    <div class="step-num">2</div>
+    <div class="step-label">Your Team</div>
+  </div>
+  <div class="progress-step" id="ps3">
+    <div class="step-num">3</div>
+    <div class="step-label">Your Costs</div>
+  </div>
+  <div class="progress-step" id="ps4">
+    <div class="step-num">4</div>
+    <div class="step-label">Results</div>
+  </div>
+  <div class="progress-step" id="ps5">
+    <div class="step-num">5</div>
+    <div class="step-label">Get Report</div>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:20%"></div></div>
+</div>
+
+<!-- MAIN -->
+<main class="main" id="mainEl">
+
+  <!-- ── HERO ───────────────────────────────────────── -->
+  <section class="hero" id="heroSection">
+    <div class="hero-eyebrow">Free ROI Calculator</div>
+    <h1 class="hero-title">How much could you save with <em>autonomous</em> vehicle logistics?</h1>
+    <p class="hero-sub">Answer 12 questions about your operation. We'll show you your current cost baseline and projected savings — in under 3 minutes.</p>
+    <div class="hero-stats">
+      <div>
+        <span class="hero-stat-val">40%+</span>
+        <span class="hero-stat-lbl">avg. labour cost reduction</span>
+      </div>
+      <div>
+        <span class="hero-stat-val">24/7</span>
+        <span class="hero-stat-lbl">operational availability</span>
+      </div>
+      <div>
+        <span class="hero-stat-val">0</span>
+        <span class="hero-stat-lbl">vehicle damage incidents</span>
+      </div>
+    </div>
+    <button class="btn-start" onclick="startCalc()">
+      Calculate my savings
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+    <p class="hero-note">No sign-up required to see your results &nbsp;·&nbsp; Takes 3 minutes</p>
+  </section>
+
+  <!-- ── STEPS ──────────────────────────────────────── -->
+  <div class="steps-container" id="stepsContainer" style="display:none">
+
+    <!-- STEP 1: SITE PROFILE -->
+    <div class="step-card active" id="step1">
+      <div class="step-eyebrow">Step 1 of 4</div>
+      <h2 class="step-title">Tell us about your site</h2>
+      <p class="step-sub">We'll use your location to calculate accurate labour cost benchmarks for your market.</p>
+      <div class="step-divider"></div>
+
+      <div class="field-group">
+        <div class="field-label">What region is your site in?</div>
+        <select id="region" onchange="onRegionChange()">
+          <option value="">— Select region —</option>
+          <option value="US">United States</option>
+          <option value="CA">Canada</option>
+          <option value="UK">United Kingdom</option>
+          <option value="EU">Europe</option>
+        </select>
+      </div>
+
+      <div class="field-group" id="stateGroup" style="display:none">
+        <div class="field-label">State</div>
+        <select id="stateSelect" onchange="onStateChange()"></select>
+      </div>
+      <div class="field-group" id="provinceGroup" style="display:none">
+        <div class="field-label">Province</div>
+        <select id="provinceSelect" onchange="onProvinceChange()"></select>
+      </div>
+      <div class="field-group" id="ukRegionGroup" style="display:none">
+        <div class="field-label">Region</div>
+        <select id="ukRegionSelect" onchange="onUKRegionChange()"></select>
+      </div>
+      <div class="field-group" id="euCountryGroup" style="display:none">
+        <div class="field-label">Country</div>
+        <select id="euCountrySelect" onchange="onEUCountryChange()"></select>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">How many vehicles (VINs) does your site process per year?</div>
+        <div class="slider-current"><span id="vinsDisplay">50,000</span> <span class="slider-unit">VINs / year</span></div>
+        <div class="slider-wrap">
+          <input type="range" id="vinsSlider" min="20000" max="1000000" step="10000" value="50000" oninput="onVinsChange()">
+          <div class="slider-labels"><span>20,000</span><span>1,000,000+</span></div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">What is the facility surface area?</div>
+        <div class="field-sublabel">Total area of the site used for vehicle storage and movement</div>
+        <div class="field-row">
+          <div class="input-wrap has-suffix">
+            <input type="number" id="surfaceAreaAcres" placeholder="e.g. 50" min="0" step="1" oninput="onSurfaceAcresChange()">
+            <span class="input-suffix">acres</span>
+          </div>
+          <div class="input-wrap has-suffix">
+            <input type="number" id="surfaceAreaSqFt" placeholder="e.g. 2,178,000" min="0" step="1000" oninput="onSurfaceSqFtChange()">
+            <span class="input-suffix">sq ft</span>
+          </div>
+        </div>
+        <div class="field-sublabel" style="margin-top:6px">Fill in either field — the other will auto-calculate</div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Does your site own or lease its yard?</div>
+        <div class="tile-grid tile-grid-2">
+          <div class="tile" onclick="selectTile(this,'yardOwn')" data-val="own">
+            <div class="tile-icon">🏭</div>
+            <div class="tile-title">Own</div>
+            <div class="tile-desc">We own the facility outright</div>
+          </div>
+          <div class="tile" onclick="selectTile(this,'yardOwn')" data-val="lease">
+            <div class="tile-icon">📋</div>
+            <div class="tile-title">Lease</div>
+            <div class="tile-desc">Rented or under contract</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" disabled>← Back</button>
+        <button class="btn-next" onclick="goStep(2)">Continue <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- STEP 2: YOUR TEAM -->
+    <div class="step-card" id="step2">
+      <div class="step-eyebrow">Step 2 of 4</div>
+      <h2 class="step-title">Tell us about your team</h2>
+      <p class="step-sub">We need to understand the headcount that would be affected by automation.</p>
+      <div class="step-divider"></div>
+
+      <div class="field-group">
+        <div class="field-label">How many jockey / spotter drivers do you employ on this site?</div>
+        <div class="field-sublabel">These are the drivers who move vehicles around the yard</div>
+        <div class="input-wrap">
+          <input type="number" id="driverCount" value="20" min="1" max="500" oninput="onDriverCountChange()">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">How many supervisors manage your drivers?</div>
+        <div class="field-sublabel" id="supervisorSuggest">Based on your driver count, we'd expect approximately <strong id="suggestedSups">2</strong> supervisors (1 per 10 drivers)</div>
+        <div class="input-wrap">
+          <input type="number" id="supervisorCount" value="2" min="0" max="100">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">What is your current level of yard automation?</div>
+        <div class="tile-grid">
+          <div class="tile" onclick="selectTile(this,'automation')" data-val="none">
+            <div class="tile-icon">👷</div>
+            <div class="tile-title">Fully manual</div>
+            <div class="tile-desc">All vehicle movement handled by drivers</div>
+          </div>
+          <div class="tile" onclick="selectTile(this,'automation')" data-val="partial">
+            <div class="tile-icon">⚙️</div>
+            <div class="tile-title">Partially automated</div>
+            <div class="tile-desc">Some automated processes already in place</div>
+          </div>
+          <div class="tile" onclick="selectTile(this,'automation')" data-val="evaluating">
+            <div class="tile-icon">🔍</div>
+            <div class="tile-title">Evaluating options</div>
+            <div class="tile-desc">Actively looking for automation solutions</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goStep(1)">← Back</button>
+        <button class="btn-next" onclick="goStep(3)">Continue <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- STEP 3: YOUR COSTS -->
+    <div class="step-card" id="step3">
+      <div class="step-eyebrow">Step 3 of 4</div>
+      <h2 class="step-title">Refine your cost profile</h2>
+      <p class="step-sub">We've pre-filled these from market benchmarks for your region. Update any figure you know precisely.</p>
+      <div class="step-divider"></div>
+
+      <div class="info-box">
+        <strong>Pre-filled from your location.</strong> These are industry benchmarks — adjust to match your actual figures for a more accurate projection.
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <div class="field-label">Driver base salary <span class="field-hint">(annual)</span></div>
+          <div class="input-wrap has-suffix">
+            <input type="number" id="driverSalary" value="50000" step="500">
+            <span class="input-suffix" id="currencySymbol">USD</span>
+          </div>
+          <div class="prefill-note" id="prefillNote">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+            Pre-filled from <span id="prefillSource">regional data</span>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Employer payroll burden <span class="field-hint">(%)</span></div>
+          <div class="input-wrap has-suffix">
+            <input type="number" id="taxRate" value="18" step="0.5" min="0" max="50">
+            <span class="input-suffix">%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Average vehicle damage cost per incident</div>
+        <div class="field-row">
+          <div class="input-wrap">
+            <input type="number" id="damageCostPer" value="250" step="50" min="0">
+          </div>
+          <div>
+            <div class="field-label" style="margin-top:0">Incidents per 1,000 VINs</div>
+            <div class="input-wrap has-suffix">
+              <input type="number" id="damageRate" value="7" step="0.5" min="0" max="50">
+              <span class="input-suffix">‰</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Average number of moves per vehicle (VIN)</div>
+        <div class="field-sublabel">How many times is each vehicle moved during its time on site? (staging, repositioning, delivery prep)</div>
+        <div class="field-row">
+          <div>
+            <div class="field-sublabel">Human — inc. repositioning</div>
+            <input type="number" id="movesHuman" value="2.1" step="0.1" min="1">
+          </div>
+          <div>
+            <div class="field-sublabel">Robot — slightly higher due to precision</div>
+            <input type="number" id="movesRobot" value="2.2" step="0.1" min="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goStep(2)">← Back</button>
+        <button class="btn-next orange" onclick="goStep(4)">Calculate my ROI <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- STEP 4: RESULTS -->
+    <div class="step-card" id="step4">
+      <div class="step-eyebrow">Your Results</div>
+      <h2 class="step-title">Here's your cost picture</h2>
+      <p class="step-sub">Based on your inputs — compared to industry benchmarks for automated vehicle logistics.</p>
+      <div class="step-divider"></div>
+
+      <!-- Big hero metric -->
+      <div class="results-hero">
+        <div class="results-eyebrow">Projected Annual Saving</div>
+        <div class="results-headline">Up to <span id="res_saving">$1.2M</span> per year</div>
+        <div class="results-subline">Based on sites processing <span id="res_vins_inline">50,000</span> VINs/year in your region</div>
+        <div class="results-metrics">
+          <div class="results-metric">
+            <span class="results-metric-val" id="res_currentCost">$2.1M</span>
+            <span class="results-metric-lbl">Current Annual Cost</span>
+          </div>
+          <div class="results-metric">
+            <span class="results-metric-val orange" id="res_savingPct">57%</span>
+            <span class="results-metric-lbl">Cost Reduction</span>
+          </div>
+          <div class="results-metric">
+            <span class="results-metric-val" id="res_payback">18–24 mo</span>
+            <span class="results-metric-lbl">Typical Payback Period</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail cards -->
+      <div class="results-grid">
+        <div class="result-card">
+          <div class="result-card-title">Your Current Operation</div>
+          <div class="result-item">
+            <span class="result-item-label">Jockey drivers</span>
+            <span class="result-item-value" id="res_drivers">—</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Supervisors</span>
+            <span class="result-item-value" id="res_supervisors">—</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Driver labour cost / yr</span>
+            <span class="result-item-value" id="res_labourCost">—</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Vehicle damage cost / yr</span>
+            <span class="result-item-value" id="res_damageCost">—</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Cost per VIN move today</span>
+            <span class="result-item-value orange" id="res_costPerMove">—</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Total displaced cost / yr</span>
+            <span class="result-item-value" id="res_totalCost">—</span>
+          </div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-title">With Automation</div>
+          <div class="result-item">
+            <span class="result-item-label">Labour replaced</span>
+            <span class="result-item-value green" id="res_replaced">100%</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Vehicle damage incidents</span>
+            <span class="result-item-value green">0</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Operational days / year</span>
+            <span class="result-item-value green">365</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Year 1 cost saving</span>
+            <span class="result-item-value green" id="res_yr1saving">—</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">5-year cumulative saving</span>
+            <span class="result-item-value green" id="res_5yrsaving">—</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">10-year cumulative saving</span>
+            <span class="result-item-value green" id="res_10yrsaving">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payback period bar -->
+      <div class="result-card" style="margin-bottom:16px">
+        <div class="result-card-title">Estimated Payback Period</div>
+        <div class="payback-bar-wrap">
+          <div style="font-size:13px;color:var(--text-mid);margin-bottom:10px">Based on typical deployment size for <span id="res_vins_payback">50,000</span> VINs/year, payback is typically achieved within:</div>
+          <div class="payback-bar-track">
+            <div class="payback-bar-fill" id="paybackBar" style="width:0%"></div>
+          </div>
+          <div class="payback-labels">
+            <span>Deployment</span>
+            <span id="paybackLabel">Month 18–24</span>
+            <span>Year 5</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 10-year chart -->
+      <div class="chart-card">
+        <div class="chart-card-title">10-Year Cumulative Savings Projection</div>
+        <div class="chart-card-sub">Assumes <span id="res_inflation_note">5%</span> annual labour cost inflation. Automation cost held flat.</div>
+        <canvas id="savingsChart" height="220"></canvas>
+      </div>
+
+      <div class="results-disclaimer">
+        <strong>How we calculated this:</strong> Your current annual cost is based on the driver and supervisor headcount you provided, fully loaded with employer tax burden, plus vehicle damage costs at your stated rate. Automation projections are based on industry benchmarks from comparable automated logistics sites. These are indicative projections — your Stanley Robotics specialist will produce a fully tailored analysis.
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goStep(3)">← Back</button>
+        <button class="btn-next orange" onclick="goStep(5)">Get my full report <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- STEP 5: LEAD CAPTURE -->
+    <div class="step-card" id="step5">
+      <div class="step-eyebrow">Step 5 — Unlock Your Report</div>
+      <h2 class="step-title">Get your personalised analysis</h2>
+      <p class="step-sub">Your representative will review your numbers and build a fully tailored report — including fleet sizing, deployment timeline, and a confirmed ROI model.</p>
+      <div class="step-divider"></div>
+
+      <div class="lead-card">
+        <div class="lead-eyebrow">What you'll receive</div>
+        <div class="lead-title">Your custom ROI report,<br>within 24 hours</div>
+        <div class="lead-sub">Free. No obligation. Reviewed by a Stanley Robotics solutions engineer.</div>
+        <div class="lead-benefits">
+          <div class="lead-benefit"><div class="benefit-icon">📊</div>Full 10-year financial model tailored to your site</div>
+          <div class="lead-benefit"><div class="benefit-icon">🤖</div>Recommended fleet size and robot configuration</div>
+          <div class="lead-benefit"><div class="benefit-icon">📅</div>Deployment timeline and milestones</div>
+          <div class="lead-benefit"><div class="benefit-icon">💬</div>30 minute discovery call with a representative</div>
+        </div>
+        <div class="lead-form">
+          <div class="lead-field-row">
+            <input type="text" id="lead_firstName" placeholder="First name *">
+            <input type="text" id="lead_lastName" placeholder="Last name *">
+          </div>
+          <div class="lead-field-row">
+            <input type="text" id="lead_company" placeholder="Company / organisation *">
+            <input type="text" id="lead_jobTitle" placeholder="Job title *">
+          </div>
+          <div class="lead-field-row">
+            <input type="email" id="lead_email" placeholder="Work email *">
+            <input type="tel" id="lead_phone" placeholder="Phone number (optional)">
+          </div>
+          <select id="lead_role" style="margin-bottom:14px">
+            <option value="">Your role / function</option>
+            <option>Operations / Logistics Director</option>
+            <option>VP / Head of Operations</option>
+            <option>Plant / Site Manager</option>
+            <option>Finance / CFO</option>
+            <option>Procurement</option>
+            <option>IT / Technology</option>
+            <option>C-Suite / Executive</option>
+            <option>Other</option>
+          </select>
+          <select id="lead_hearAbout" style="margin-bottom:14px">
+            <option value="">Where did you hear about Stanley Robotics?</option>
+            <option>Google / Search Engine</option>
+            <option>LinkedIn</option>
+            <option>Industry Event / Conference</option>
+            <option>Word of Mouth / Colleague</option>
+            <option>Trade Publication / Press</option>
+            <option>Existing Customer Referral</option>
+            <option>Stanley Robotics Sales Team</option>
+            <option>Partner / Reseller</option>
+            <option>Other</option>
+          </select>
+          <button class="btn-submit" onclick="submitLead()">
+            Send me my report
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+          <div class="lead-privacy">By submitting you agree to our Privacy Policy. We will never share your data with third parties.</div>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn-back" onclick="goStep(4)">← Back</button>
+        <button class="btn-back" style="opacity:0" disabled></button>
+      </div>
+    </div>
+
+    <!-- THANK YOU -->
+    <div class="thankyou-card" id="thankyou">
+      <div class="thankyou-icon">✓</div>
+      <div class="thankyou-title">You're all set.</div>
+      <div class="thankyou-sub">Your personalised ROI report is being prepared. A Stanley Robotics representative will be in touch within 24 hours.</div>
+      <div class="thankyou-steps">
+        <div class="ty-step"><div class="ty-step-num">1</div>Report lands in your inbox</div>
+        <div class="ty-step"><div class="ty-step-num">2</div>30-min discovery call booked</div>
+        <div class="ty-step"><div class="ty-step-num">3</div>Full site proposal delivered</div>
+      </div>
+    </div>
+
+  </div><!-- /steps-container -->
+</main>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// LABOUR DATA
+// ════════════════════════════════════════════════════════════
+
+// US state data: [baseSalary USD, employerTaxRate]
+const US_STATES = {
+  "Alabama":        [47693, 0.174], "Alaska":         [56516, 0.169],
+  "Arizona":        [50548, 0.230], "Arkansas":       [47278, 0.213],
+  "California":     [57242, 0.182], "Colorado":       [52935, 0.188],
+  "Connecticut":    [55737, 0.179], "Delaware":       [52676, 0.165],
+  "Florida":        [49302, 0.165], "Georgia":        [50184, 0.177],
+  "Hawaii":         [54232, 0.192], "Idaho":          [48420, 0.148],
+  "Illinois":       [53091, 0.191], "Indiana":        [50340, 0.174],
+  "Iowa":           [49665, 0.194], "Kansas":         [49406, 0.152],
+  "Kentucky":       [48835, 0.182], "Louisiana":      [49354, 0.161],
+  "Maine":          [50496, 0.166], "Maryland":       [53506, 0.193],
+  "Massachusetts":  [56464, 0.213], "Michigan":       [51222, 0.191],
+  "Minnesota":      [53091, 0.155], "Mississippi":    [46173, 0.150],
+  "Missouri":       [49331, 0.180], "Montana":        [48348, 0.168],
+  "Nebraska":       [48762, 0.176], "Nevada":         [51971, 0.168],
+  "New Hampshire":  [51912, 0.166], "New Jersey":     [55764, 0.192],
+  "New Mexico":     [48234, 0.163], "New York":       [56712, 0.203],
+  "North Carolina": [50109, 0.165], "North Dakota":   [49092, 0.176],
+  "Ohio":           [50897, 0.180], "Oklahoma":       [48138, 0.172],
+  "Oregon":         [52761, 0.185], "Pennsylvania":   [52359, 0.183],
+  "Rhode Island":   [53528, 0.181], "South Carolina": [48204, 0.180],
+  "South Dakota":   [48768, 0.144], "Tennessee":      [48426, 0.177],
+  "Texas":          [50706, 0.174], "Utah":           [50268, 0.168],
+  "Vermont":        [51228, 0.175], "Virginia":       [52833, 0.179],
+  "Washington":     [55836, 0.185], "West Virginia":  [47208, 0.163],
+  "Wisconsin":      [51498, 0.177], "Wyoming":        [50400, 0.152]
+};
+
+// Canada provinces: [baseSalary CAD, employerTaxRate, FX to USD]
+const CA_PROVINCES = {
+  "Ontario":           [58000, 0.175, 0.74],
+  "Quebec":            [54000, 0.185, 0.74],
+  "British Columbia":  [60000, 0.170, 0.74],
+  "Alberta":           [62000, 0.155, 0.74],
+  "Saskatchewan":      [55000, 0.158, 0.74],
+  "Manitoba":          [54000, 0.172, 0.74],
+  "Nova Scotia":       [52000, 0.180, 0.74],
+  "New Brunswick":     [51000, 0.175, 0.74],
+  "Newfoundland":      [53000, 0.168, 0.74],
+  "Prince Edward Island": [49000, 0.165, 0.74]
+};
+
+// UK regions: [baseSalary GBP, employerNIRate, FX to USD]
+const UK_REGIONS = {
+  "South East":        [32000, 0.138, 1.27],
+  "London":            [36000, 0.138, 1.27],
+  "North West":        [29000, 0.138, 1.27],
+  "Yorkshire":         [28500, 0.138, 1.27],
+  "West Midlands":     [29500, 0.138, 1.27],
+  "East Midlands":     [29000, 0.138, 1.27],
+  "East of England":   [30500, 0.138, 1.27],
+  "South West":        [29500, 0.138, 1.27],
+  "North East":        [27500, 0.138, 1.27],
+  "Scotland":          [30000, 0.138, 1.27],
+  "Wales":             [27000, 0.138, 1.27]
+};
+
+// Europe: [baseSalary EUR, employerTaxRate, FX to USD]
+const EU_COUNTRIES = {
+  "France":        [26000, 0.450, 1.09],
+  "Germany":       [32000, 0.210, 1.09],
+  "Netherlands":   [34000, 0.190, 1.09],
+  "Belgium":       [30000, 0.330, 1.09],
+  "Spain":         [22000, 0.300, 1.09],
+  "Italy":         [24000, 0.310, 1.09],
+  "Sweden":        [38000, 0.315, 1.09],
+  "Poland":        [18000, 0.210, 1.09],
+  "Czech Republic":[20000, 0.340, 1.09],
+  "Hungary":       [14000, 0.270, 1.09]
+};
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+let currentStep = 0;
+let savingsChart;
+let tileSelections = { yardOwn: null, automation: null };
+let laborData = { salary: 50000, taxRate: 0.18, currency: 'USD', symbol: '$', fxToUSD: 1.0, location: '' };
+let leadData = {};
+
+const answers = {
+  region: '', subRegion: '', vins: 50000, yardOwn: null, automation: null,
+  driverCount: 20, supervisorCount: 2,
+  driverSalary: 50000, taxRate: 0.18, damageCostPer: 250, damageRate: 7,
+  movesHuman: 2.1, movesRobot: 2.2
+};
+
+// ════════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════════
+function startCalc() {
+  document.getElementById('heroSection').style.display = 'none';
+  document.getElementById('stepsContainer').style.display = 'block';
+  document.getElementById('progressWrap').style.display = 'flex';
+  document.getElementById('mainEl').style.paddingTop = '128px';
+  currentStep = 1;
+  updateProgress(1);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goStep(n) {
+  if (n > currentStep && !validateStep(currentStep)) return;
+  document.getElementById('step'+currentStep)?.classList.remove('active');
+  document.getElementById('thankyou')?.classList.remove('active');
+  if (n === 5) {
+    // still show step5 card
+    document.getElementById('step5').classList.add('active');
+  } else if (n <= 5) {
+    const el = document.getElementById('step'+n);
+    if (el) el.classList.add('active');
+  }
+  if (n === 4) buildResults();
+  currentStep = n;
+  updateProgress(n);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateProgress(n) {
+  const steps = [1,2,3,4,5];
+  steps.forEach(i => {
+    const el = document.getElementById('ps'+i);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+    // replace number with check for done
+    const numEl = el.querySelector('.step-num');
+    if (i < n) numEl.textContent = '';
+    else numEl.textContent = i;
+  });
+  document.getElementById('progressFill').style.width = ((n/5)*100)+'%';
+}
+
+function validateStep(n) {
+  if (n === 1) {
+    if (!answers.region) { alert('Please select your region.'); return false; }
+    if (!answers.subRegion) { alert('Please select your state / province / region.'); return false; }
+    if (!tileSelections.yardOwn) { alert('Please select whether you own or lease your yard.'); return false; }
+  }
+  if (n === 2) {
+    if (!tileSelections.automation) { alert('Please select your current automation level.'); return false; }
+  }
+  return true;
+}
+
+// ════════════════════════════════════════════════════════════
+// REGION / LOCATION SELECTORS
+// ════════════════════════════════════════════════════════════
+function onRegionChange() {
+  const region = document.getElementById('region').value;
+  answers.region = region;
+  ['stateGroup','provinceGroup','ukRegionGroup','euCountryGroup'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  answers.subRegion = '';
+
+  if (region === 'US') {
+    const sel = document.getElementById('stateSelect');
+    sel.innerHTML = '<option value="">— Select state —</option>' +
+      Object.keys(US_STATES).sort().map(s => `<option value="${s}">${s}</option>`).join('');
+    document.getElementById('stateGroup').style.display = 'block';
+    laborData.currency = 'USD'; laborData.symbol = '$'; laborData.fxToUSD = 1.0;
+  } else if (region === 'CA') {
+    const sel = document.getElementById('provinceSelect');
+    sel.innerHTML = '<option value="">— Select province —</option>' +
+      Object.keys(CA_PROVINCES).map(p => `<option value="${p}">${p}</option>`).join('');
+    document.getElementById('provinceGroup').style.display = 'block';
+    laborData.currency = 'CAD'; laborData.symbol = 'C$'; laborData.fxToUSD = 0.74;
+  } else if (region === 'UK') {
+    const sel = document.getElementById('ukRegionSelect');
+    sel.innerHTML = '<option value="">— Select region —</option>' +
+      Object.keys(UK_REGIONS).map(r => `<option value="${r}">${r}</option>`).join('');
+    document.getElementById('ukRegionGroup').style.display = 'block';
+    laborData.currency = 'GBP'; laborData.symbol = '£'; laborData.fxToUSD = 1.27;
+  } else if (region === 'EU') {
+    const sel = document.getElementById('euCountrySelect');
+    sel.innerHTML = '<option value="">— Select country —</option>' +
+      Object.keys(EU_COUNTRIES).map(c => `<option value="${c}">${c}</option>`).join('');
+    document.getElementById('euCountryGroup').style.display = 'block';
+    laborData.currency = 'EUR'; laborData.symbol = '€'; laborData.fxToUSD = 1.09;
+  }
+  document.getElementById('currencySymbol').textContent = laborData.currency;
+}
+
+function setLaborFromData(d, locationName, fxOverride) {
+  const [salary, taxRate, fx] = d;
+  laborData.salary   = salary;
+  laborData.taxRate  = taxRate;
+  laborData.fxToUSD  = fxOverride || fx || 1.0;
+  laborData.location = locationName;
+  answers.subRegion  = locationName;
+  document.getElementById('driverSalary').value = salary;
+  document.getElementById('taxRate').value = (taxRate * 100).toFixed(1);
+  document.getElementById('prefillSource').textContent = locationName+' benchmark';
+  document.getElementById('currencySymbol').textContent = laborData.currency;
+}
+
+function onStateChange()    { const v = document.getElementById('stateSelect').value;    if(v) setLaborFromData([...US_STATES[v], 1.0], v); }
+function onProvinceChange() { const v = document.getElementById('provinceSelect').value; if(v) setLaborFromData(CA_PROVINCES[v], v); }
+function onUKRegionChange() { const v = document.getElementById('ukRegionSelect').value; if(v) setLaborFromData(UK_REGIONS[v], v); }
+function onEUCountryChange(){ const v = document.getElementById('euCountrySelect').value;if(v) setLaborFromData(EU_COUNTRIES[v], v); }
+
+// ════════════════════════════════════════════════════════════
+// SLIDER
+// ════════════════════════════════════════════════════════════
+function onVinsChange() {
+  const v = +document.getElementById('vinsSlider').value;
+  answers.vins = v;
+  document.getElementById('vinsDisplay').textContent = v.toLocaleString();
+}
+
+// ════════════════════════════════════════════════════════════
+// SURFACE AREA AUTO-CONVERT (1 acre = 43,560 sq ft)
+// ════════════════════════════════════════════════════════════
+function onSurfaceAcresChange() {
+  const acres = parseFloat(document.getElementById('surfaceAreaAcres').value);
+  if (!isNaN(acres) && acres > 0) {
+    document.getElementById('surfaceAreaSqFt').value = Math.round(acres * 43560).toLocaleString().replace(/,/g,'');
+  }
+}
+function onSurfaceSqFtChange() {
+  const sqft = parseFloat(document.getElementById('surfaceAreaSqFt').value);
+  if (!isNaN(sqft) && sqft > 0) {
+    document.getElementById('surfaceAreaAcres').value = (sqft / 43560).toFixed(2);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// DRIVER COUNT → suggest supervisors
+// ════════════════════════════════════════════════════════════
+function onDriverCountChange() {
+  const d = +document.getElementById('driverCount').value || 0;
+  const sug = Math.max(1, Math.ceil(d / 10));
+  document.getElementById('suggestedSups').textContent = sug;
+  document.getElementById('supervisorCount').value = sug;
+}
+
+// ════════════════════════════════════════════════════════════
+// TILE SELECTION
+// ════════════════════════════════════════════════════════════
+function selectTile(el, group) {
+  document.querySelectorAll(`[onclick*="'${group}'"]`).forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  tileSelections[group] = el.dataset.val;
+  answers[group] = el.dataset.val;
+}
+
+// ════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ════════════════════════════════════════════════════════════
+function runCalc() {
+  const vins         = +document.getElementById('vinsSlider').value;
+  const drivers      = +document.getElementById('driverCount').value || 1;
+  const supervisors  = +document.getElementById('supervisorCount').value || 0;
+  const baseSalary   = +document.getElementById('driverSalary').value || laborData.salary;
+  const taxRate      = (+document.getElementById('taxRate').value || 18) / 100;
+  const damageCostPer= +document.getElementById('damageCostPer').value || 250;
+  const damageRate   = (+document.getElementById('damageRate').value || 7) / 1000;
+  const movesHuman   = +document.getElementById('movesHuman').value || 2.1;
+  const inflation    = 0.05;
+
+  const fx = laborData.fxToUSD;
+  const salaryUSD = baseSalary * fx;
+  const fullyLoadedDriverUSD = salaryUSD * (1 + taxRate);
+  const fullyLoadedSupervUSD = fullyLoadedDriverUSD * 1.20;
+  const damageAnnualUSD = vins * damageRate * damageCostPer;
+  const humanMovesYr = vins * movesHuman;
+
+  // Total displaced cost (drivers + supervisors + damages)
+  const driversLabourUSD = drivers * fullyLoadedDriverUSD;
+  const supervisorsLabourUSD = supervisors * fullyLoadedSupervUSD;
+  const totalDisplacedUSD = driversLabourUSD + supervisorsLabourUSD + damageAnnualUSD;
+  const costPerMoveUSD = humanMovesYr > 0 ? totalDisplacedUSD / humanMovesYr : 0;
+
+  // Automation benchmark: industry typical saving rate 45-65% of displaced cost
+  // We use 55% as the central estimate — conservative enough to be defensible
+  const AUTOMATION_SAVING_RATE = 0.55;
+  const yr1SavingUSD = totalDisplacedUSD * AUTOMATION_SAVING_RATE;
+  const paybackMonths = yr1SavingUSD > 0 ? Math.round((totalDisplacedUSD * 0.9) / (yr1SavingUSD / 12)) : 24;
+
+  // 10-year cumulative (inflating human cost, flat robot cost)
+  let cumulative = []; let cumSum = 0;
+  for (let y = 1; y <= 10; y++) {
+    const humanYr = totalDisplacedUSD * Math.pow(1 + inflation, y - 1);
+    const robotYr = humanYr * (1 - AUTOMATION_SAVING_RATE);
+    const saving = humanYr - robotYr;
+    cumSum += saving;
+    cumulative.push({ year: y, humanYr, saving, cumSum });
+  }
+  const yr5Cumulative = cumulative[4].cumSum;
+  const yr10Cumulative = cumulative[9].cumSum;
+
+  return {
+    vins, drivers, supervisors, baseSalary, taxRate, damageCostPer, damageRate,
+    fullyLoadedDriverUSD, fullyLoadedSupervUSD, damageCostPer,
+    driversLabourUSD, supervisorsLabourUSD, damageAnnualUSD,
+    totalDisplacedUSD, costPerMoveUSD, yr1SavingUSD,
+    savingPct: AUTOMATION_SAVING_RATE,
+    paybackMonths, cumulative, yr5Cumulative, yr10Cumulative,
+    currency: laborData.currency, symbol: '$',  // always show USD for comparability
+    inflation
+  };
+}
+
+// ════════════════════════════════════════════════════════════
+// FORMAT HELPERS
+// ════════════════════════════════════════════════════════════
+function fmtUSD(v, d=0) {
+  if (v >= 1000000) return '$' + (v/1000000).toFixed(2) + 'M';
+  return '$' + Math.round(v).toLocaleString();
+}
+function fmtPct(v) { return (v*100).toFixed(0)+'%'; }
+function fmtNum(v) { return Math.round(v).toLocaleString(); }
+function set(id, val) { const el = document.getElementById(id); if(el) el.textContent = val; }
+
+// ════════════════════════════════════════════════════════════
+// BUILD RESULTS PAGE
+// ════════════════════════════════════════════════════════════
+function buildResults() {
+  const d = runCalc();
+
+  // Hero metrics
+  set('res_saving',       fmtUSD(d.yr1SavingUSD));
+  set('res_vins_inline',  fmtNum(d.vins));
+  set('res_currentCost',  fmtUSD(d.totalDisplacedUSD));
+  set('res_savingPct',    fmtPct(d.savingPct));
+
+  const pb = d.paybackMonths;
+  const pbLow = Math.round(pb * 0.85);
+  const pbHigh = Math.round(pb * 1.15);
+  set('res_payback', `${pbLow}–${pbHigh} mo`);
+
+  // Detail cards
+  set('res_drivers',      d.drivers.toLocaleString());
+  set('res_supervisors',  d.supervisors.toLocaleString());
+  set('res_labourCost',   fmtUSD(d.driversLabourUSD + d.supervisorsLabourUSD));
+  set('res_damageCost',   fmtUSD(d.damageAnnualUSD));
+  set('res_costPerMove',  '$' + d.costPerMoveUSD.toFixed(2));
+  set('res_totalCost',    fmtUSD(d.totalDisplacedUSD));
+  set('res_replaced',     '100% drivers & supervisors');
+  set('res_yr1saving',    fmtUSD(d.yr1SavingUSD));
+  set('res_5yrsaving',    fmtUSD(d.yr5Cumulative));
+  set('res_10yrsaving',   fmtUSD(d.yr10Cumulative));
+  set('res_vins_payback', fmtNum(d.vins));
+  set('res_inflation_note', '5%');
+
+  // Payback bar — scale 0-60 months
+  const pct = Math.min(95, Math.max(10, (pb / 60) * 100));
+  setTimeout(() => {
+    document.getElementById('paybackBar').style.width = pct + '%';
+  }, 300);
+  set('paybackLabel', `Month ${pbLow}–${pbHigh}`);
+
+  // Chart
+  buildSavingsChart(d.cumulative);
+}
+
+function buildSavingsChart(cumulative) {
+  const ctx = document.getElementById('savingsChart').getContext('2d');
+  if (savingsChart) savingsChart.destroy();
+
+  const labels = cumulative.map(r => 'Year ' + r.year);
+  const cumulData = cumulative.map(r => Math.round(r.cumSum));
+  const annualData = cumulative.map(r => Math.round(r.saving));
+
+  savingsChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Annual Saving',
+          data: annualData,
+          backgroundColor: 'rgba(14,34,64,0.10)',
+          borderColor: 'rgba(14,34,64,0.25)',
+          borderWidth: 1,
+          borderRadius: 4,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Cumulative Saving',
+          data: cumulData,
+          type: 'line',
+          borderColor: '#00C8DC',
+          backgroundColor: 'rgba(0,200,220,0.07)',
+          borderWidth: 2.5,
+          pointBackgroundColor: '#00C8DC',
+          pointRadius: 4,
+          tension: 0.4,
+          fill: true,
+          yAxisID: 'y2'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', labels: { font: { family: 'DM Sans', size: 11 }, color: '#8fa3c0', boxWidth: 12 } },
+        tooltip: {
+          backgroundColor: '#0E2240',
+          titleColor: '#fff',
+          bodyColor: 'rgba(255,255,255,0.7)',
+          titleFont: { family: 'DM Sans', size: 12 },
+          bodyFont: { family: 'DM Sans', size: 11 },
+          callbacks: {
+            label: ctx => {
+              const v = ctx.raw;
+              return ' ' + ctx.dataset.label + ': $' + v.toLocaleString();
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#8fa3c0', font: { family: 'DM Sans', size: 10 } } },
+        y: { grid: { color: '#f0f3f8' }, ticks: { color: '#8fa3c0', font: { family: 'DM Sans', size: 10 }, callback: v => '$' + (v/1000).toFixed(0)+'k' }, title: { display: true, text: 'Annual Saving', color: '#8fa3c0', font: { size: 10 } } },
+        y2: { position: 'right', grid: { display: false }, ticks: { color: '#00C8DC', font: { family: 'DM Sans', size: 10 }, callback: v => v>=1000000 ? '$'+(v/1000000).toFixed(1)+'M' : '$'+(v/1000).toFixed(0)+'k' }, title: { display: true, text: 'Cumulative', color: '#00C8DC', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// LEAD SUBMISSION
+// ════════════════════════════════════════════════════════════
+function submitLead() {
+  const firstName = document.getElementById('lead_firstName').value.trim();
+  const lastName  = document.getElementById('lead_lastName').value.trim();
+  const company   = document.getElementById('lead_company').value.trim();
+  const jobTitle  = document.getElementById('lead_jobTitle').value.trim();
+  const email     = document.getElementById('lead_email').value.trim();
+
+  if (!firstName || !lastName || !company || !jobTitle || !email) {
+    alert('Please fill in all required fields (marked with *).');
+    return;
+  }
+  if (!/\S+@\S+\.\S+/.test(email)) {
+    alert('Please enter a valid email address.');
+    return;
+  }
+
+  // Collect full market intel payload
+  const d = runCalc();
+  const hearAbout = document.getElementById('lead_hearAbout').value;
+  const surfaceAreaAcres = document.getElementById('surfaceAreaAcres').value;
+  const surfaceAreaSqFt  = document.getElementById('surfaceAreaSqFt').value;
+
+  const payload = {
+    // Lead info
+    firstname: firstName,
+    lastname: lastName,
+    company,
+    jobtitle: jobTitle,
+    email,
+    phone: document.getElementById('lead_phone').value,
+    role: document.getElementById('lead_role').value,
+    hear_about_stanley_robotics: hearAbout,
+    // Site profile
+    region: answers.region,
+    sub_region: answers.subRegion,
+    vins_per_year: document.getElementById('vinsSlider').value,
+    facility_surface_area_acres: surfaceAreaAcres,
+    facility_surface_area_sqft:  surfaceAreaSqFt,
+    yard_ownership: tileSelections.yardOwn,
+    // Team
+    driver_count: document.getElementById('driverCount').value,
+    supervisor_count: document.getElementById('supervisorCount').value,
+    automation_level: tileSelections.automation,
+    // Costs
+    driver_salary_local: document.getElementById('driverSalary').value,
+    payroll_burden_pct: document.getElementById('taxRate').value,
+    damage_cost_per_incident: document.getElementById('damageCostPer').value,
+    damage_rate_per_1000_vins: document.getElementById('damageRate').value,
+    moves_per_vin_human: document.getElementById('movesHuman').value,
+    moves_per_vin_robot: document.getElementById('movesRobot').value,
+    // Calculated outputs
+    total_displaced_cost_usd: Math.round(d.totalDisplacedUSD),
+    yr1_projected_saving_usd: Math.round(d.yr1SavingUSD),
+    yr10_cumulative_saving_usd: Math.round(d.yr10Cumulative),
+    estimated_payback_months: d.paybackMonths,
+    // Meta
+    submitted_at: new Date().toISOString(),
+    lead_source: 'ROI Calculator',
+    calculator_version: 'v1.2'
+  };
+
+  console.log('LEAD PAYLOAD:', JSON.stringify(payload, null, 2));
+
+  // Generate HubSpot-compatible CSV and trigger download
+  generateHubSpotCSV(payload);
+
+  // Show thank you
+  document.getElementById('step5').classList.remove('active');
+  document.getElementById('thankyou').classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ════════════════════════════════════════════════════════════
+// HUBSPOT CSV EXPORT
+// HubSpot import expects column headers matching HubSpot property names.
+// Upload the downloaded CSV at: HubSpot → Contacts → Import
+// ════════════════════════════════════════════════════════════
+function generateHubSpotCSV(payload) {
+  // HubSpot standard + custom property column headers
+  const headers = [
+    'First Name',        // firstname
+    'Last Name',         // lastname
+    'Email',             // email
+    'Phone Number',      // phone
+    'Company Name',      // company
+    'Job Title',         // jobtitle
+    'Role / Function',
+    'Where Heard About SR',
+    'Region',
+    'Sub Region',
+    'VINs Per Year',
+    'Facility Area (acres)',
+    'Facility Area (sq ft)',
+    'Yard Ownership',
+    'Driver Count',
+    'Supervisor Count',
+    'Automation Level',
+    'Driver Salary (local)',
+    'Payroll Burden %',
+    'Damage Cost / Incident',
+    'Damage Rate / 1000 VINs',
+    'Moves / VIN (Human)',
+    'Moves / VIN (Robot)',
+    'Total Displaced Cost USD',
+    'Yr1 Projected Saving USD',
+    'Yr10 Cumulative Saving USD',
+    'Payback Months',
+    'Lead Source',
+    'Submitted At',
+    'Calculator Version'
+  ];
+
+  const values = [
+    payload.firstname,
+    payload.lastname,
+    payload.email,
+    payload.phone || '',
+    payload.company,
+    payload.jobtitle,
+    payload.role || '',
+    payload.hear_about_stanley_robotics || '',
+    payload.region,
+    payload.sub_region,
+    payload.vins_per_year,
+    payload.facility_surface_area_acres || '',
+    payload.facility_surface_area_sqft  || '',
+    payload.yard_ownership || '',
+    payload.driver_count,
+    payload.supervisor_count,
+    payload.automation_level || '',
+    payload.driver_salary_local,
+    payload.payroll_burden_pct,
+    payload.damage_cost_per_incident,
+    payload.damage_rate_per_1000_vins,
+    payload.moves_per_vin_human,
+    payload.moves_per_vin_robot,
+    payload.total_displaced_cost_usd,
+    payload.yr1_projected_saving_usd,
+    payload.yr10_cumulative_saving_usd,
+    payload.estimated_payback_months,
+    payload.lead_source,
+    payload.submitted_at,
+    payload.calculator_version
+  ];
+
+  // Escape CSV values (wrap in quotes if they contain commas or quotes)
+  function escapeCSV(v) {
+    const s = String(v == null ? '' : v);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  const csvContent = [
+    headers.map(escapeCSV).join(','),
+    values.map(escapeCSV).join(',')
+  ].join('\n');
+
+  // Trigger download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const ts   = new Date().toISOString().slice(0, 10);
+  link.href     = url;
+  link.download = `SR_ROI_Lead_${ts}_${payload.company.replace(/\s+/g,'_')}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
